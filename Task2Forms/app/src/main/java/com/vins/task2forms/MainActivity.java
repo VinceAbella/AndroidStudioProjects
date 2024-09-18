@@ -1,8 +1,13 @@
 package com.vins.task2forms;
 
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Patterns;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -22,18 +27,22 @@ import androidx.core.view.WindowInsetsCompat;
 public class MainActivity extends AppCompatActivity {
 
     private EditText usernameEditText, emailEditText, passwordEditText, ageEditText, bdayEditText;
-    private Button sellButton;
+    private Button sellButton, backButton;
+    private DatabaseHelper dbHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        setTitle("Sign Up");
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        dbHelper = new DatabaseHelper(this);
 
         Spinner gender_Spinner = findViewById(R.id.gender_spinner);
         Spinner country_Spinner = findViewById(R.id.country_spinner);
@@ -41,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
         TextView eraTextView = findViewById(R.id.eraTextView);
         ageEditText = findViewById(R.id.ageEditText);
         sellButton = findViewById(R.id.sellButton);
+        backButton = findViewById(R.id.backButton);
 
         usernameEditText = findViewById(R.id.usernameEditText);
         emailEditText = findViewById(R.id.emailEditText);
@@ -149,8 +159,18 @@ public class MainActivity extends AppCompatActivity {
         ageEditText.addTextChangedListener(textWatcher);
         bdayEditText.addTextChangedListener(textWatcher);
 
-        sellButton.setOnClickListener(v -> Toast.makeText(MainActivity.this, "Sold off Successfully \"GRATIAS AGO TIBI\"",
-                Toast.LENGTH_SHORT).show());
+        sellButton.setOnClickListener(v -> {
+            if (validateForm()) {
+                saveFormData();
+                Toast.makeText(MainActivity.this, "Sold off Successfully \"GRATIAS AGO TIBI\"",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        backButton.setOnClickListener(v -> {
+            Intent loginIntent = new Intent(MainActivity.this, LoginActivity.class);
+            startActivity(loginIntent);
+        });
     }
 
     private void checkFieldsForEmptyValues() {
@@ -161,5 +181,48 @@ public class MainActivity extends AppCompatActivity {
         String birthDate = bdayEditText.getText().toString().trim();
 
         sellButton.setEnabled(!username.isEmpty() && !email.isEmpty() && !password.isEmpty() && !age.isEmpty() && !birthDate.isEmpty());
+    }
+
+    private boolean validateForm() {
+        String ageText = ageEditText.getText().toString().trim();
+        String emailText = emailEditText.getText().toString().trim();
+
+        if (!isValidEmail(emailText)) {
+            Toast.makeText(MainActivity.this, "Invalid Email Address", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        if (!isValidAge(ageText)) {
+            Toast.makeText(MainActivity.this, "Age must be between 0 and 500", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean isValidEmail(CharSequence email) {
+        return Patterns.EMAIL_ADDRESS.matcher(email).matches();
+    }
+
+    private boolean isValidAge(String age) {
+        try {
+            int ageValue = Integer.parseInt(age);
+            return ageValue >= 0 && ageValue <= 500;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private void saveFormData() {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("username", usernameEditText.getText().toString());
+        values.put("email", emailEditText.getText().toString());
+        values.put("password", passwordEditText.getText().toString());
+        values.put("age", ageEditText.getText().toString());
+        values.put("birthDate", bdayEditText.getText().toString());
+
+        db.insert("users", null, values);
+        db.close();
     }
 }
